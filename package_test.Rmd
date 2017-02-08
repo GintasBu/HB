@@ -1,0 +1,134 @@
+---
+title: "CasualImpact_test"
+author: "GB"
+date: "February 5, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+myfile<-file.choose()
+
+```
+
+
+```{r}
+mydata<-read.csv(myfile, header = TRUE)
+mydata$ga.date<-as.Date(mydata$ga.date)
+sprintf('start date in file: %s', min(mydata$ga.date))
+sprintf('end date in file: %s', max(mydata$ga.date))
+
+```
+
+
+
+
+```{r library, message=FALSE, warning=FALSE}
+library(CausalImpact)
+library(dplyr)
+library(lattice)
+```
+
+
+```{r}
+paths<-unique(mydata$ga.landingPagePath)
+sprintf('total different landing pages: %s', length(paths))
+```
+
+## ploting some times series for the random 9 landing Pages, the number can be changed, but keep <12
+
+
+```{r}
+testpaths<-sample(length(paths), 9)
+data2<-mydata[mydata$ga.landingPagePath %in% paths[testpaths], ]
+xyplot(ga.newUsers~ga.date|ga.landingPagePath, data2)
+
+```
+
+## generating ntiles and plotting ntiles versus counts. counts here are total NewUsers per page. Number of ntiles is 10. can be changed.
+
+```{r ntiles column}
+kn=10 # numer of ntiles, can be changed
+sumdata<-summarize(group_by(mydata, ga.landingPagePath), counts=n())
+sumdata<-sumdata[order(-sumdata$counts), ]
+sumdata$ntiles<-ntile(sumdata$counts, kn)
+xyplot(ntiles~counts, sumdata)
+```
+
+
+
+```{r making groups}
+kg=7   # kg = to number of test groups 
+
+```
+
+
+
+# 
+# 
+# below is testing the package with synthetic data from the tutorial. this was done to assure that all dependences (supporting sub-packages) are in working condition
+
+
+
+```{r trial data, echo=FALSE}
+set.seed(1)
+x1 <- 100 + arima.sim(model = list(ar = 0.999), n = 100)
+y <- 1.02 * x1 + rnorm(100)
+y[71:100] <- y[71:100] + 10
+data <- cbind(y, x1)
+```
+
+```{r}
+
+```
+
+```{r}
+matplot(data, type = "l")
+#par(cex = 0.85, oma = c(0, 0, 0, 0), mar = c(3, 2, 1, 1))
+#matplot(data, type = "l", lwd = 1.5)
+```
+
+```{r}
+par(cex = 0.85, oma = c(0, 0, 0, 0), mar = c(3, 2, 1, 1))
+matplot(data, type = "l", lwd = 1.5)
+```
+```{r}
+pre.period <- c(1, 70)
+post.period <- c(71, 100)
+```
+
+
+```{r}
+impact <- CausalImpact(data, pre.period, post.period)
+```
+
+```{r}
+plot(impact)
+```
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+q <- plot(impact) + theme_bw(base_size = 11)
+suppressWarnings(plot(q))
+```
+```{r}
+time.points <- seq.Date(as.Date("2014-01-01"), by = 1, length.out = 100)
+data <- zoo(cbind(y, x1), time.points)
+head(data)
+```
+
+```{r}
+pre.period <- as.Date(c("2014-01-01", "2014-03-11"))
+post.period <- as.Date(c("2014-03-12", "2014-04-10"))
+```
+```{r}
+impact <- CausalImpact(data, pre.period, post.period)
+plot(impact)
+```
+
