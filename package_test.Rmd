@@ -1,8 +1,10 @@
 ---
-title: "CasualImpact_test"
+title: "Causal impact study"
 author: "GB"
 date: "February 5, 2017"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
