@@ -73,7 +73,7 @@ rm(data2)
 ```
 
 # 3. Building stratas
-### Generating ntiles and plotting ntiles versus counts. counts here are total NewUsers per page. Number of ntiles is kn=10. can be changed below, user selectable.
+### Generating ntiles and plotting ntiles versus counts. counts here are total NewUsers per page. Number of ntiles is kn=7. can be changed below, user selectable.
 
 ```{r ntiles column}
 
@@ -85,11 +85,11 @@ rm(data2)
 
 ```
 
-### repackaging data into different kg=7 groups. Number kg can be changed. number of unique landingPagePath's per ntile is printed out 
+### repackaging data into different kg=5 groups. Number kg can be changed. number of unique landingPagePath's per ntile is printed out 
 
 
 ```{r making groups}
-kg=5  # kg = to number of test groups 
+kg=5  # kg - number of test groups 
 
   sumdata$group<-0   #creating group marker column
   groupeddata<-data.frame()  # new data frame where results will be
