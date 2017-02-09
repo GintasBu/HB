@@ -11,18 +11,24 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# 1. Getting data file and setting experiment start, end and rollout times. window pops up  allowing to choose a file. click on it. startime, endtime rolout times below can be changed. 
+
 ```{r}
 myfile<-file.choose()
-
+startime<-as.Date('2016-04-01')
+endtime<-as.Date('2016-06-01')
+rolout<-as.Date('2016-09-01')
 ```
 
-
+### reading data file, checking if there is data prior to experiment- answer into variable data_for_strata
 ```{r}
 mydata<-read.csv(myfile, header = TRUE)
 mydata$ga.date<-as.Date(mydata$ga.date)
 sprintf('start date in file: %s', min(mydata$ga.date))
 sprintf('end date in file: %s', max(mydata$ga.date))
-
+if (min(mydata$ga.date) >= startime) { print('Warning: no data prior to experiment start!') 
+  data_for_strata<-FALSE} else {data_for_strata<-TRUE}
+data_for_strata
 ```
 
 
@@ -35,40 +41,98 @@ library(lattice)
 ```
 
 
+# 2. Getting to know more about the loaded datafile. 
+### Selecting only data from time period before the experiment start as described in Etsy experiment, and plotting it
 ```{r}
-paths<-unique(mydata$ga.landingPagePath)
-sprintf('total different landing pages: %s', length(paths))
+if (data_for_strata==TRUE) {
+  prior_to_exp<-mydata[mydata$ga.date < startime,]
+  xyplot(ga.newUsers~ga.date, prior_to_exp)
+}
+
 ```
 
-## ploting some times series for the random 9 landing Pages, the number can be changed, but keep <12
+### Checking how many unique paths are in landingPagePath column
+
+```{r}
+paths<-unique(mydata$ga.landingPagePath)   # selects unique landingPagePath's for the entire data file
+sprintf('total different landing pages in the entire data file: %s', length(paths))
+paths2<-unique(prior_to_exp$ga.landingPagePath) #selects unique landingPagePath's before the experiment
+sprintf('total different landing pages prior to experiment: %s', length(paths2))
+```
+
+### ploting some times series for the random NP=9 landing Pages, the number can be changed below, NP variable, user selectable
 
 
 ```{r}
-testpaths<-sample(length(paths), 9)
+NP<-9
+testpaths<-sample(length(paths), NP)
 data2<-mydata[mydata$ga.landingPagePath %in% paths[testpaths], ]
 xyplot(ga.newUsers~ga.date|ga.landingPagePath, data2)
-
+rm(data2)
 ```
 
-## generating ntiles and plotting ntiles versus counts. counts here are total NewUsers per page. Number of ntiles is 10. can be changed.
+# 3. Building stratas
+### Generating ntiles and plotting ntiles versus counts. counts here are total NewUsers per page. Number of ntiles is kn=6. can be changed below, user selectable.
 
 ```{r ntiles column}
-kn=10 # numer of ntiles, can be changed
-sumdata<-summarize(group_by(mydata, ga.landingPagePath), counts=n())
-sumdata<-sumdata[order(-sumdata$counts), ]
-sumdata$ntiles<-ntile(sumdata$counts, kn)
-xyplot(ntiles~counts, sumdata)
+kn=6 # numer of ntiles, can be changed
+sumdata<-summarize(group_by(prior_to_exp, ga.landingPagePath), counts=n()) # getting total counts per landingPagePath
+sumdata<-sumdata[order(-sumdata$counts), ]   # ordering in descreasing order
+sumdata$ntiles<-ntile(sumdata$counts, kn)  # creating ntiles column and assinging ntile number to each row
+xyplot(ntiles~log10(counts), sumdata)
 ```
 
+### repackaging data into different kg=7 groups. Number kg can be changed. number of unique landingPagePath's per ntile is printed out 
 
 
 ```{r making groups}
 kg=7   # kg = to number of test groups 
+sumdata$group<-0   #creating group marker column
+groupeddata<-data.frame()  # new data frame where results will be
+for (i in 1:kn) {   # looping through ntiles
+  sampledsumdata<-filter(sumdata, ntiles==i)   # selecting data for specific ntile only
+  set.seed(12345)      # 
+  sampledsumdata2<-sampledsumdata[sample(nrow(sampledsumdata)),]    # reshufling rows randomly in that table and renaming the table to *2, paths no longer in the same sequence within the landingPath column
+  print(length(sampledsumdata$ga.landingPagePath))  # prints the number of paths per ntile
+  sampledsumdata2$group<-rep_len(1:kg, length(sampledsumdata2$counts))    # assign group to randomized paths
+  groupeddata<-rbind(groupeddata, sampledsumdata2)  # combine into final table
+  rm(sampledsumdata, sampledsumdata2)  # remove extra variables
+  }
 
+```
+
+## here groupeddata contains landingPagePath, total counts per that path, ntile and group for that landingPagePath. this table is used to map landingPagePath to group in the original data file
+```{r adding groups to original file}
+x<-groupeddata[match(mydata$ga.landingPagePath,groupeddata$ga.landingPagePath),4,drop=F]
+mydata$group<-as.factor(x$group)
+rm(x)
+```
+
+```{r}
+mydata_na<-mydata[!is.na(mydata$group),]   #removes rows with NA in group column, puts result into mydata_na
+my.lines<-c(startime, endtime, rolout)
+groupmydata<-summarize(group_by(mydata_na, group, ga.date), counts=n()) # agregates per group sum within the group
+xyplot(counts~ga.date, groups=group, groupmydata, type='l',auto.key=T, panel = panel.superpose,
+       panel.groups = function(..., group.number) {
+           panel.abline(v = my.lines[group.number])
+           panel.xyplot(...)})
 ```
 
 
 
+
+## plotting for specific time window, adjust values below:
+```{r}
+st<-as.Date('2016-03-15')
+en<-as.Date('2016-06-15')
+groupmydata2<-groupmydata[groupmydata$ga.date<=en & groupmydata$ga.date>st, ]
+xyplot(counts~ga.date, groups=group, groupmydata2, type='l', panel = panel.superpose,
+       panel.groups = function(..., group.number) {
+           panel.abline(v = my.lines[group.number])
+           panel.xyplot(...) })
+```
+
+ 
 # 
 # 
 # below is testing the package with synthetic data from the tutorial. this was done to assure that all dependences (supporting sub-packages) are in working condition
